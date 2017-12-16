@@ -1,0 +1,27 @@
+<!-- {% elif resp[0] == "Town" %}
+	{% if len(resp[2]) == 1 %} 
+	<p>{{resp[1].name}} is a location in {{resp[2]}}.</p>
+	{% elif len({{resp[2]}}) > 1 %}
+	<p>{{resp[1].name}} is a location in these regions:</p>
+		<ul>
+			{% for line in resp[2] %}
+			<li>{{line}}</li>
+			{% endfor %}
+		</ul>
+	{% else %}
+	<p>You have searched for {{resp[1].name}}.</p>
+	{% endif %}
+	<p>Here, you can find many pokemon including:</p>
+		<ul>
+		{% for poke in {{resp[3]}}} %}
+			<li>poke</li>
+		{% endfor %}
+		</ul>
+{% else %}
+<p>You have searched for {{resp[1].name}}.</p>
+<p>{{resp[1].name}} can be classified as {% if len(resp[2]) == 1 %} a resp[2] {% else %} {% for t in resp[2] %} {{t}} and {% endfor %}{% endif %} type pokemon.</p>
+{% endif %} -->
+
+<!-- {% if session.logged_in %}
+<p> Would you like to add this pokemon to your team?</p>
+<form method="POST" > -->

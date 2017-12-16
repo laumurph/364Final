@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}
+Your Page
+{% endblock %}
+
+{% block content %}
+<h1><img src={{resp[1]}} height=50> Hello, {{resp[0]}}!</h1>
+<p>Region: {{resp[2]}}</p></br>
+<p>Your team:{% if resp[3] %}</p>
+<ul>
+	{% for item in resp[3] %}
+		<li>{{item}}</li>
+	{% endfor %}
+</ul>
+{% else %}
+You don't have any pokemon yet :( try searching for some!</p>
+{% endif %}
+{% endblock %}
+
+

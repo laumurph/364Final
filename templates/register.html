@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}
+Register
+{% endblock %}
+
+{% block content %}
+<form method="POST" enctype="multipart/form-data">
+	{{ form.hidden_tag() }}
+	{{ form.username.label }} {{ form.username() }}
+	{{ form.email.label }} {{ form.email() }}
+    {{ form.password.label }} {{ form.password() }}
+    {{ form.passwordagain.label }} {{ form.passwordagain() }}
+    {{ form.region.label }} {{ form.region() }}
+    {{ form.photo}}
+	{{ form.submit() }}
+</form>
+<p><a href='/'>Back to login</a></p>
+<div>
+{% for message in get_flashed_messages() %}
+{{ message }}
+{% endfor %}
+</div>
+{% endblock %}
