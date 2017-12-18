@@ -46,7 +46,7 @@ login_manager.init_app(app) # set up login manager
 
 ## Set up Shell context
 def make_shell_context():
-	return dict(app=app, db=db, Pokemon=pokemon, Image=images, Trainer=trainers, Region=regions, Town=towns)
+	return dict(app=app, db=db, pokemon=Pokemon, images=Images, trainers=Trainer, regions=Region, towns=Town)
 
 # Add function use to manager
 manager.add_command("shell", Shell(make_context=make_shell_context))
