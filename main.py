@@ -30,6 +30,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get('DATABASE_URL') or "postg
 WTF_CSRF_ENABLED = False
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['HEROKU_ON'] = os.environ.get('HEROKU')
 
 # App addition setups
 manager = Manager(app)
@@ -318,12 +319,15 @@ def register():
 			form.photo.data.save('static/' + secure_filename(form.photo.data.filename))
 		session['logged_in'] = True
 		return redirect(url_for('login'))
-	if Trainer.query.filter_by(email=form.email.data).first():
+	try:
+		if Trainer.query.filter_by(email=form.email.data).first():
 			flash('You have already made an account with this email. Please log in instead.')
 			return render_template('register.html',form=form)
-	if Trainer.query.filter_by(username=form.username.data).first():
+		if Trainer.query.filter_by(username=form.username.data).first():
 			flash('Someone else has already created an account with that username. Please choose a different name.')
 			return render_template('register.html',form=form)
+	except:
+		pass
 	return render_template('register.html',form=form)
 
 # user's home page - must be logged in to see
