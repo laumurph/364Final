@@ -4,3 +4,6 @@ When running the application from the repository, you should have a database cal
 All requirements are stored in the requirements.txt file, and can be installed by writing the command: pip install -r requirements.txt
 Additionally, the command to be entered in terminal in order to run the app is: python3 main.py runserver.
 Then, go in your browser to localhost:5000/ and you will arrive at the main page.
+
+# Deployed App
+If you would like to use the deployed version of the app, go to the following address and try it out! http://team-up-final.herokuapp.com/
