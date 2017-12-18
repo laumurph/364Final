@@ -6,29 +6,40 @@ Search Results for {{resp[0]}}
 
 {% block content %}
 {% if resp[0] == "Region" %}
-<p>There {% if resp[2] > 1 %} are currently {{resp[2]}} towns {% elif resp[2] == 1 %} is currently 1 town {% else %} are currently no towns {% endif %} discovered for the {{resp[1].name}} region. Maybe you can discover more!</p>
+<p>There {% if resp[2] > 1 %} are currently {{resp[2]}} towns {% elif resp[2] == 1 %} is currently 1 town {% else %} are currently no towns {% endif %} discovered for the {{name}} region. Maybe you can discover more!</p>
 {% if resp[2] >= 1 %}<p>One such town is called {{resp[1].towns[0].name}}.</p> {% endif %}
 {% elif resp[0] == "Location" %}
 	{% if resp[2][1] == 1 %} 
-	<p>{{resp[1].name}} is a location in {{resp[2][0][0]}}.</p>
+	<p>{{name}} is a location in {{resp[2][0][0]}}.</p>
 	{% elif resp[2][1] > 1 %}
-	<p>{{resp[1].name}} is a location in these regions:</p>
+	<p>{{name}} is a location in these regions:</p>
 		<ul>
 			{% for line in resp[2][0] %}
 			<li>{{line.name}}</li>
 			{% endfor %}
 		</ul>
 	{% else %}
-	<p>You have searched for {{resp[1].name}}.</p>
+	<p>You have searched for {{name}}.</p>
 	{% endif %}
+	{% if resp[3] == [] %}
+	<p>We can't pull data up at this time or no pokemon can be found in the area.</p>
+	{% else %}
 	<p>Here, you can find many pokemon including:</p>
 		<ul>
 		{% for poke in resp[3] %}
 			<li>{{poke}}</li>
 		{% endfor %}
 		</ul>
+	{% endif %}
 {% else %}
-<p>You have searched for {{resp[1].name}}.</p>
-<p>{{resp[1].name}} can be classified as a {{resp[2]}} type pokemon.</p>
+<p>You have searched for {{name}}.</p>
+<p>{{name}} can be classified as a {{resp[2]}} type pokemon.</p>
+{% if session.logged_in %}
+<form method='get' action="/added-team-member">
+	<label>Would you like to add this pokemon to your team?<input type = "radio" name = "answer" value={{resp[1].name}}>Yes</label>
+	<p><input type = "submit" value = "Add Pokemon"></p>
+</form>
 {% endif %}
+{% endif %}
+
 {% endblock %}

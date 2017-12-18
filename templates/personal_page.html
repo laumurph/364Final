@@ -5,8 +5,8 @@ Your Page
 {% endblock %}
 
 {% block content %}
-<h1><img src={{resp[1]}} height=50> Hello, {{resp[0]}}!</h1>
-<p>Region: {{resp[2]}}</p></br>
+<h1>{% if resp[1] != "" %} <img src="data:;base64,{{ resp[1] }}" height = 100/> {% endif %}Hello, {{resp[0]}}!</h1>
+<p>Region: {{resp[2]}}</p>
 <p>Your team:{% if resp[3] %}</p>
 <ul>
 	{% for item in resp[3] %}

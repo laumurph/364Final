@@ -5,6 +5,12 @@ Login
 {% endblock %}
 
 {% block content %}
+<h1>Log in!</h1>
+<div>
+{% for message in get_flashed_messages() %}
+{{ message }}
+{% endfor %}
+</div>
 <form method="POST">
 	{{ form.hidden_tag() }}
 	{{ form.email.label }} {{ form.email() }}
@@ -13,10 +19,4 @@ Login
 	{{ form.submit() }}
 </form>
 <p>Don't have an account? <a href="/register">Create a New Account</a></p>
-<p><a href="/reset">Forgot your password?</a></p>
-<div>
-{% for message in get_flashed_messages() %}
-{{ message }}
-{% endfor %}
-</div>
 {% endblock %}

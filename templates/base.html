@@ -10,6 +10,6 @@
 		{% endblock %}
 	</body>
 	<footer>
-		<p><a href="/">Home</a> <a href="/search">Search</a></p>
+		<p><a href="/">Home</a> <a href="/search">Search</a>{% if not session.logged_in %} <a href="/login">Log In</a>{% elif session.logged_in %} <a href='/personal'>Your Page</a> <a href='/logout'>Log Out</a>{% endif %}</p>
 	</footer>
 </html>

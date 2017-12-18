@@ -5,6 +5,12 @@ Search
 {% endblock %}
 
 {% block content %}
+<div>
+{% for message in get_flashed_messages() %}
+{{ message }}
+{% endfor %}
+</div></br>
+
 <form method="POST">
 	{{ form.hidden_tag() }}
 	{{ form.region_search.label }} {{ form.region_search() }}
@@ -12,9 +18,4 @@ Search
     {{ form.pokemon_search.label }} {{ form.pokemon_search() }}
 	{{ form.submit() }}
 </form>
-<div>
-{% for message in get_flashed_messages() %}
-{{ message }}
-{% endfor %}
-</div>
 {% endblock %}

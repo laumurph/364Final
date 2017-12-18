@@ -5,6 +5,11 @@ Login
 {% endblock %}
 
 {% block content %}
-<h1>You have found the login page.</h1>
-<p>Would you like to login? <a href="/login">Click Here</a></p>
+<h1>Welcome to Team Up!</h1>
+<p>Here you can register for an account as a pokemon trainer and save pokemon to your team! If you don't want to sign up, you can still search for information relating to the pokemon world, such as regions, locations, and of course, pokemon themselves!</p>
+{% if not session.logged_in %}
+<p>Would you like to login or sign up? <a href="/login">Click Here</a></p>
+{% elif session.logged_in %}
+<a href='/logout'>Log Out</a>
+{% endif %}
 {% endblock %}

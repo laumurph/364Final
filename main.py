@@ -5,6 +5,7 @@ __author__ = "Lauren Murphy (laumurph)"
 import os
 import json
 import requests
+import base64
 from flask import Flask, render_template, session, redirect, request, url_for, flash
 from flask_script import Manager, Shell
 from flask_wtf import FlaskForm
@@ -12,6 +13,7 @@ from wtforms import StringField, SubmitField, FileField, PasswordField, RadioFie
 from wtforms.validators import Required, Length, Email, Regexp, EqualTo
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, MigrateCommand
+
 from flask_login import LoginManager, login_required, logout_user, login_user, UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug import secure_filename
@@ -28,17 +30,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get('DATABASE_URL') or "postg
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-
-# Set up email config stuff
-app.config['MAIL_SERVER'] = 'smtp.googlemail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_SUBJECT_PREFIX'] = '[Songs App]'
-app.config['MAIL_SENDER'] = 'Admin <>'
-app.config['ADMIN'] = os.environ.get('ADMIN')
-
 # App addition setups
 manager = Manager(app)
 db = SQLAlchemy(app) # For database use
@@ -53,25 +44,11 @@ login_manager.init_app(app) # set up login manager
 
 ## Set up Shell context
 def make_shell_context():
-	return dict(app=app, db=db, ) #TODO: fix up the make_shell_context so that I add in the tables like User=User
+	return dict(app=app, db=db, Pokemon=Pokemon, Image=Image, Trainer=Trainer, Region=Region, Town=Town)
 
 # Add function use to manager
 manager.add_command("shell", Shell(make_context=make_shell_context))
 
-##### Functions to send email #####
-def send_async_email(app, msg):
-	with app.app_context():
-		mail.send(msg)
-
-def send_email(to, subject, template, **kwargs): # kwargs = 'keyword arguments', this syntax means to unpack any keyword arguments into the function in the invocation...
-	msg = Message(app.config['MAIL_SUBJECT_PREFIX'] + ' ' + subject,
-				  sender=app.config['MAIL_SENDER'], recipients=[to])
-	msg.body = render_template(template + '.txt', **kwargs)
-	msg.html = render_template(template + '.html', **kwargs)
-	thr = Thread(target=send_async_email, args=[app, msg]) # using the async email to make sure the email sending doesn't take up all the "app energy" -- the main thread -- at once
-	thr.start()
-	return thr # The thread being returned
-	
 #Models
 #association table between regions and towns
 maps = db.Table('maps', db.Column('town_id', db.Integer, db.ForeignKey("towns.id")), db.Column('region_id', db.Integer, db.ForeignKey('regions.id')))
@@ -88,14 +65,13 @@ class Pokemon(db.Model):
 	ptype = db.Column(db.String(36))
 	typeid = db.Column(db.Integer)
 	name = db.Column(db.String(36), unique=True)
-	#trainer_id = db.Column(db.Integer, db.ForeignKey('trainers.id'))
 	## fields for stats TODO
 
 ## may be buggy, depends on if it was correctly implemented. Watch out.
 class Image(db.Model):
 	__tablename__ = 'images'
 	id = db.Column(db.Integer, primary_key=True)
-	#image = db.Column(db.LargeBinary)
+	image = db.Column(db.LargeBinary)
 	location = db.Column(db.String(255))
 
 class Trainer(UserMixin, db.Model):
@@ -166,19 +142,14 @@ class SearchForm(FlaskForm):
 	pokemon_search = StringField("Search for a specific pokemon: ")
 	submit = SubmitField("Search")
 
-class ForgotForm(FlaskForm):
-	email = StringField('Email', validators=[Required(), Email()])
-	submit = SubmitField('Send Me an Email')
-
 # TODO: Error handlers
-# 404 error
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
 
-# 500 error
-
-# 405 maybe, for too few methods
-
-# error page for when no information can be found.
-
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
 
 def get_API_data(route, name):
 	try:
@@ -202,17 +173,16 @@ def get_pokemon_location(location):
 # TODO: get_or_create functions that come here.
 
 # creates image
-def get_or_create_image(db_session,image_file, image_loc):
+def get_or_create_image(db_session, image_file, image_loc):
 	print("running image")
 	pic = db.session.query(Image).filter_by(location="static/"+image_loc).first()
 	if pic:
 		return pic
 	else:
-		pic = Image(location="static/"+image_loc) #image=image_file
+		pic = Image(image=image_file.read(), location="static/"+image_loc)
 		db_session.add(pic)
 		db_session.commit()
 		return pic
-
 
 # creates pokemon
 def get_or_create_pokemon(db_session,pokemon_name):
@@ -231,7 +201,6 @@ def get_or_create_pokemon(db_session,pokemon_name):
 		db_session.commit()
 		return pokemon
 
-
 # creates town
 def get_or_create_town(db_session, town_name):
 	print("running town")
@@ -243,16 +212,18 @@ def get_or_create_town(db_session, town_name):
 		resp = get_API_data("location", town_name)
 		if type(resp) == type(''):
 			return resp
-		try:
+		elif 'detail' in resp or resp['areas'] == []:
+			db_session.add(town)
+			db_session.commit()
+			return town
+		else:
 			encounters = json.loads(requests.get(resp['areas'][0]['url']).text)
-		except:
-			return "No area"
-		for t in encounters['pokemon_encounters']:
-			poke_found = get_or_create_pokemon(db_session,t['pokemon']['name'])
-			town.pokemon.append(poke_found)
-		db_session.add(town)
-		db_session.commit()
-		return town
+			for t in encounters['pokemon_encounters']:
+				poke_found = get_or_create_pokemon(db_session,t['pokemon']['name'])
+				town.pokemon.append(poke_found)
+			db_session.add(town)
+			db_session.commit()
+			return town
 
 # creates region
 def get_or_create_region(db_session,region_name):
@@ -265,26 +236,34 @@ def get_or_create_region(db_session,region_name):
 		resp = get_API_data("region", region_name.lower().strip())
 		if type(resp) == type(''):
 			return resp
-		for location in resp['locations']:
+		for location in resp['locations'][:2]:
 			town = get_or_create_town(db_session, location['name'])
+			print(town)
+			print(town.name)
 			region.towns.append(town)
 		db_session.add(region)
 		db_session.commit()
 		return region
 
 # creates trainer
-def get_or_create_trainer(db_session, email_provided, username_provided, password_provided,region_name, photo_data, photo_name, team = []):
+def get_or_create_trainer(db_session, email_provided, username_provided, password_provided,region_name, photo_data = "", photo_name = "", team = []):
 	print("running trainer")
 	trainer = db.session.query(Trainer).filter_by(email=email_provided).first()
 	if trainer:
 		return trainer
 	else:
-		photo_obj = get_or_create_image(db_session, photo_data, photo_name)
-		region_obj = get_or_create_region(db_session, region_name)
-		if type(region_obj) == type(''):
-			return region_obj
+		if photo_data != "":
+			photo_obj = get_or_create_image(db_session, photo_data, photo_name)
+			region_obj = get_or_create_region(db_session, region_name)
+			if type(region_obj) == type(''):
+				return region_obj
 		# uses password, not password_hash, because the word password is the parameter for the functions used to generate the hash.
-		trainer = Trainer(email=email_provided, username=username_provided, password = password_provided, regionid=region_obj.id, pictureid=photo_obj.id)
+			trainer = Trainer(email=email_provided, username=username_provided, password = password_provided, regionid=region_obj.id, pictureid=photo_obj.id)
+		else:
+			region_obj = get_or_create_region(db_session, region_name)
+			if type(region_obj) == type(''):
+				return region_obj
+			trainer = Trainer(email=email_provided, username=username_provided, password = password_provided, regionid=region_obj.id)
 		for p in team:
 			pokemon = get_or_create_pokemon(db_session, p)
 			trainer.pokemonteam.append(pokemon)
@@ -292,21 +271,29 @@ def get_or_create_trainer(db_session, email_provided, username_provided, passwor
 		db_session.commit()
 		return trainer
 	
+#updates the list of towns in a region
+def update_region_towns(db_session, town):
+	r_name = get_API_data('location', town.name)['region']['name']
+	region = get_or_create_region(db_session, r_name)
+	if town.name in [Town.query.filter_by(id=t.id).first().name for t in region.towns]:
+		return "Aleady in there."
+	else:
+		region.towns.append(town)
+		db_session.add(region)
+		db_session.commit()
+		return "Town has been added to your region"
 
 #updates the list of pokemon associated with the trainer
-###### may need to use the load_trainer() method above to get the trainer id of the current user.
-##### or use the current_user method/class loaded in at the top of the document.
-#used on page with specific pokemon to add to a user's 
-def update_team(db_session, trainer_id, pokemon_name):
-	if pokemon_name in db.session.query(Trainer).filter_by(id=trainer_id).first().pokemonteam:
+#used on page with specific pokemon to add to a user's team
+def update_team(db_session, trainer, pokemon_name):
+	if pokemon_name in [Pokemon.query.filter_by(id=p_id.id).first().name for p_id in trainer.pokemonteam]:
 		return "{} is already in your team, sorry!".format(pokemon_name.capitalize())
 	else:
 		pokemon = get_or_create_pokemon(db_session, pokemon_name)
-		trainer = db.session.query(Trainer).filter_by(id=trainer_id).first()
 		trainer.pokemonteam.append(pokemon)
 		db_session.add(trainer)
 		db_session.commit()
-		return "{} has been added to your team, congrats!".format(pokemon_name.capitalize)
+		return "{} has been added to your team, congrats!".format(pokemon_name.capitalize())
 
 # TODO: add in views and respective routes.
 
@@ -324,6 +311,7 @@ def login():
 		user = Trainer.query.filter_by(email=form.email.data).first()
 		if user is not None and user.verify_password(form.password.data):
 			login_user(user, form.remember_me.data)
+			session['logged_in'] = True
 			return redirect(request.args.get('next') or url_for('personal_page'))
 		flash('Invalid username or password.')
 	return render_template('login.html',form=form)
@@ -332,8 +320,8 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+	session['logged_in']=False
 	logout_user()
-	flash('You are logged out. Come back soon!')
 	return redirect(url_for('index'))
 
 # registration page
@@ -344,22 +332,25 @@ def register():
 		get_or_create_trainer(db.session, form.email.data, form.username.data, form.password.data,form.region.data, form.photo.data, secure_filename(form.photo.data.filename))
 		if form.photo.data:
 			form.photo.data.save('static/' + secure_filename(form.photo.data.filename))
-		#flash('You can now log in!')
-		return redirect(url_for('personal_page'))
+		session['logged_in'] = True
+		return redirect(url_for('login'))
 	return render_template('register.html',form=form)
 
 # user's home page - must be logged in to see
 @app.route('/personal', methods=['GET', 'POST'])
 @login_required
 def personal_page():
-	image_location = Image.query.filter_by(id=current_user.pictureid).first().location
+	try:
+		image_data = Image.query.filter_by(id=current_user.pictureid).first()
+		image_binary = base64.b64encode(image_data.image).decode('ascii')
+	except:
+	 	image_binary = ""
 	region_name = Region.query.filter_by(id=current_user.regionid).first().name
-	team_names = [Pokemon.query.filter_by(id=p_id).first().name for p_id in current_user.pokemonteam]
+	team_names = [Pokemon.query.filter_by(id=p_id.id).first().name for p_id in current_user.pokemonteam]
 	if team_names == []:
 		team_names = None
-	resp = (current_user.username, image_location, region_name.upper(), team_names)
-	return render_template('personal_page.html', resp=resp)
-
+	resp = (current_user.username, image_binary, region_name.capitalize(), team_names)
+	return render_template('personal_page.html', resp=resp, data=list)
 
 # search page
 @app.route('/search', methods=["GET","POST"])
@@ -367,49 +358,51 @@ def search():
 	form = SearchForm()
 	if form.validate_on_submit():
 		if form.region_search.data or form.town_search.data or form.pokemon_search.data:
-			kind = ""
-			if form.region_search.data:
-				resp = get_or_create_region(db.session, form.region_search.data.lower().strip())
-				kind="Region"
-				t_len = len(resp.towns.all())
-				return render_template('single_response.html', resp = (kind, resp, t_len))
-			elif form.town_search.data:
-				resp = get_or_create_town(db.session, form.town_search.data.lower().strip().replace(" ", "-"))
-				kind="Location"
-				#User.query.join(roles_users).join(Role).filter(roles_users.c.user_id == User.id and roles_users.c.role_id == Role.id).all()
-				regionids = Region.query.join(maps).join(Town).filter(maps.c.town_id == resp.id).all()
-				#db.session.query(maps).query.filter_by(town_id=resp.id).all()
-				#regionids= maps.query.filter_by(town_id=resp.id).all()
-				names = [Region.query.filter_by(id=r_id.id).first().name for r_id in regionids]
-				n_len = len(names)
-				poke = [Pokemon.query.filter_by(id=p.id).first().name for p in resp.pokemon]
-				return render_template('single_response.html', resp = (kind, resp, (names, n_len), poke))
-			else:
-				resp = get_or_create_pokemon(db.session, form.pokemon_search.data.lower().strip().replace(" ", "-").replace(".", ""))
-				kind="Pokemon"
-				type = resp.ptype
-				if ',' in type:
-					type = type.split(',')
-					type = " and ".join(type)
+			try:
+				kind = ""
+				if form.region_search.data:
+					resp = get_or_create_region(db.session, form.region_search.data.lower().strip())
+					kind="Region"
+					t_len = len(resp.towns.all())
+					return render_template('single_response.html', resp = (kind, resp, t_len), name = resp.name.capitalize())
+				elif form.town_search.data:
+					resp = get_or_create_town(db.session, form.town_search.data.lower().strip().replace(" ", "-"))
+					kind="Location"
+					update_response = update_region_towns(db.session, resp)
+					regionids = Region.query.join(maps).join(Town).filter(maps.c.town_id == resp.id).all()
+					names = [Region.query.filter_by(id=r_id.id).first().name.capitalize() for r_id in regionids]
+					n_len = len(names)
+					poke = [Pokemon.query.filter_by(id=p.id).first().name.replace("-", " ").title() for p in resp.pokemon]
+					return render_template('single_response.html', resp = (kind, resp, (names, n_len), poke), name = resp.name.replace('-', ' ').title())
 				else:
-					type= type
-				return render_template('single_response.html', resp = (kind, resp, type))
+					resp = get_or_create_pokemon(db.session, form.pokemon_search.data.lower().strip().replace(" ", "-").replace(".", ""))
+					kind="Pokemon"
+					type = resp.ptype
+					if ',' in type:
+						type = type.split(',')
+						type = " and ".join(type)
+					else:
+						type= type
+					return render_template('single_response.html', resp = (kind, resp, type), name = resp.name.replace("-", " ").title() )
+			except:
+				flash("Sorry, it looks like your search was misspelt or data was unable to be returned. Try again with something different!")
+				return render_template('search.html', form=form)
 		else:
 			flash("Sorry, you must search for something.")
 	return render_template('search.html', form=form)
 
+@app.route("/added-team-member", methods = ["POST", "GET"])
+@login_required
+def add_pokemon():
+	if request.method == "GET":
+		arg = request.args.get('answer')
+		resp = update_team(db.session,current_user,arg)
+		return render_template('team_result.html', response= resp)
+	else:
+		return "Still trying sorry"
+	
 #will be built once I add the 'type' as something you can search by.
 # list of pokemon that come back
-
-# specific pokemon, town, or region page
-@app.route("/search/singleresult", methods=["GET","POST"])
-def single_results():
-	return render_template('single_response.html', resp=resp)
-	
-# page to reset password
-@app.route("/reset", methods =['GET', 'POST'])
-def account_reset():
-	pass
 
 
 if __name__ == '__main__':
