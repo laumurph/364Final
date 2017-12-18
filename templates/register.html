@@ -5,6 +5,11 @@ Register
 {% endblock %}
 
 {% block content %}
+<div>
+{% for message in get_flashed_messages() %}
+{{ message }}
+{% endfor %}
+</div>
 <form method="POST" enctype="multipart/form-data">
 	{{ form.hidden_tag() }}
 	{{ form.username.label }} {{ form.username() }}
@@ -16,9 +21,4 @@ Register
 	{{ form.submit() }}
 </form>
 <p><a href='/'>Back to login</a></p>
-<div>
-{% for message in get_flashed_messages() %}
-{{ message }}
-{% endfor %}
-</div>
 {% endblock %}

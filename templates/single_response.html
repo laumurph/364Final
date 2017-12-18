@@ -7,7 +7,7 @@ Search Results for {{resp[0]}}
 {% block content %}
 {% if resp[0] == "Region" %}
 <p>There {% if resp[2] > 1 %} are currently {{resp[2]}} towns {% elif resp[2] == 1 %} is currently 1 town {% else %} are currently no towns {% endif %} discovered for the {{name}} region. Maybe you can discover more!</p>
-{% if resp[2] >= 1 %}<p>One such town is called {{resp[1].towns[0].name}}.</p> {% endif %}
+{% if resp[2] >= 1 %}<p>One such town is called {{example}}.</p> {% endif %}
 {% elif resp[0] == "Location" %}
 	{% if resp[2][1] == 1 %} 
 	<p>{{name}} is a location in {{resp[2][0][0]}}.</p>

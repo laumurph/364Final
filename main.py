@@ -27,6 +27,7 @@ app = Flask(__name__)
 app.static_folder = 'static'
 app.config['SECRET_KEY'] = 'wafafoaij438afl2ljfb19nlafjf491jalakjj1g1vm4iiu098afvf4b'
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get('DATABASE_URL') or "postgresql://localhost/pokemon_app"
+WTF_CSRF_ENABLED = False
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -62,12 +63,9 @@ teams = db.Table('teams', db.Column('pokemon_id', db.Integer, db.ForeignKey('pok
 class Pokemon(db.Model):
 	__tablename__ = 'pokemon'
 	id = db.Column(db.Integer, primary_key = True)
-	ptype = db.Column(db.String(36))
-	typeid = db.Column(db.Integer)
+	ptype = db.Column(db.String(36))	
 	name = db.Column(db.String(36), unique=True)
-	## fields for stats TODO
 
-## may be buggy, depends on if it was correctly implemented. Watch out.
 class Image(db.Model):
 	__tablename__ = 'images'
 	id = db.Column(db.Integer, primary_key=True)
@@ -113,7 +111,7 @@ class Town(db.Model):
 def load_trainer(trainer_id):
 	return Trainer.query.get(int(trainer_id)) # returns User object or None
 
-# TODO: Add forms here
+# forms
 
 class NewTrainerForm(FlaskForm):
 	username = StringField('Username: ',validators=[Required(),Length(1,60),Regexp('^[A-Za-z][A-Za-z0-9_.]*$',0,'Usernames must have only letters, numbers, dots or underscores')])
@@ -134,15 +132,13 @@ class LoginForm(FlaskForm):
 	remember_me = BooleanField('Keep me logged in')
 	submit = SubmitField('Log In')
 
-
-#add select from so that we have each type as a dropdown option. this will use the multi-result view
 class SearchForm(FlaskForm):
 	region_search = StringField("Search for a specific region: ")
 	town_search = StringField("Search for a specific town: ")
 	pokemon_search = StringField("Search for a specific pokemon: ")
 	submit = SubmitField("Search")
 
-# TODO: Error handlers
+# Error handlers
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
@@ -151,26 +147,27 @@ def page_not_found(e):
 def internal_server_error(e):
     return render_template('500.html'), 500
 
+# functions to get data from the API
 def get_API_data(route, name):
 	try:
 		data = json.loads(requests.get("https://pokeapi.co/api/v2/{}/{}".format(route, name)).text)
 		return data
 	except:
-		return "Cannot retrieve data for that name."
+		return "Cannot retrieve data for that route."
 
-def get_pokemon_location(location):
-	try:
-		data = json.loads(requests.get("https://pokeapi.co/api/v2/location-area/{}".format(location)).text)
-		try:
-			exists = data['pokemon_encounters'][0]['pokemon']
-		except:
-			return "No more data"
-		return data
-	except:
-		return "Unable to make the request"
+# def get_pokemon_location(location):
+# 	try:
+# 		data = json.loads(requests.get("https://pokeapi.co/api/v2/location-area/{}".format(location)).text)
+# 		try:
+# 			exists = data['pokemon_encounters'][0]['pokemon']
+# 		except:
+# 			return "No more data"
+# 		return data
+# 	except:
+# 		return "Unable to make the request"
 
 
-# TODO: get_or_create functions that come here.
+#get_or_create functions and update functions
 
 # creates image
 def get_or_create_image(db_session, image_file, image_loc):
@@ -295,7 +292,7 @@ def update_team(db_session, trainer, pokemon_name):
 		db_session.commit()
 		return "{} has been added to your team, congrats!".format(pokemon_name.capitalize())
 
-# TODO: add in views and respective routes.
+# views and respective routes.
 
 #main page
 @app.route('/')
@@ -334,6 +331,9 @@ def register():
 			form.photo.data.save('static/' + secure_filename(form.photo.data.filename))
 		session['logged_in'] = True
 		return redirect(url_for('login'))
+	if Trainer.query.filter_by(email=form.email.data).first():
+			flash('You have already made an account with this email. Please log in instead.')
+			return render_template('register.html',form=form)
 	return render_template('register.html',form=form)
 
 # user's home page - must be logged in to see
@@ -364,7 +364,8 @@ def search():
 					resp = get_or_create_region(db.session, form.region_search.data.lower().strip())
 					kind="Region"
 					t_len = len(resp.towns.all())
-					return render_template('single_response.html', resp = (kind, resp, t_len), name = resp.name.capitalize())
+					example_town = resp.towns[0].name.replace('-', ' ').title()
+					return render_template('single_response.html', resp = (kind, resp, t_len), name = resp.name.capitalize(), example = example_town)
 				elif form.town_search.data:
 					resp = get_or_create_town(db.session, form.town_search.data.lower().strip().replace(" ", "-"))
 					kind="Location"
@@ -401,9 +402,6 @@ def add_pokemon():
 	else:
 		return "Still trying sorry"
 	
-#will be built once I add the 'type' as something you can search by.
-# list of pokemon that come back
-
 
 if __name__ == '__main__':
 	db.create_all()
