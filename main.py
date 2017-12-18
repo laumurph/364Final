@@ -155,18 +155,6 @@ def get_API_data(route, name):
 	except:
 		return "Cannot retrieve data for that route."
 
-# def get_pokemon_location(location):
-# 	try:
-# 		data = json.loads(requests.get("https://pokeapi.co/api/v2/location-area/{}".format(location)).text)
-# 		try:
-# 			exists = data['pokemon_encounters'][0]['pokemon']
-# 		except:
-# 			return "No more data"
-# 		return data
-# 	except:
-# 		return "Unable to make the request"
-
-
 #get_or_create functions and update functions
 
 # creates image
@@ -299,7 +287,6 @@ def update_team(db_session, trainer, pokemon_name):
 def index():
 	return render_template('index.html')
 
-
 # log in page
 @app.route('/login',methods=["GET","POST"])
 def login():
@@ -333,6 +320,9 @@ def register():
 		return redirect(url_for('login'))
 	if Trainer.query.filter_by(email=form.email.data).first():
 			flash('You have already made an account with this email. Please log in instead.')
+			return render_template('register.html',form=form)
+	if Trainer.query.filter_by(username=form.username.data).first():
+			flash('Someone else has already created an account with that username. Please choose a different name.')
 			return render_template('register.html',form=form)
 	return render_template('register.html',form=form)
 
